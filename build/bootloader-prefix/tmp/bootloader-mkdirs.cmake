@@ -4,19 +4,19 @@
 cmake_minimum_required(VERSION 3.5)
 
 file(MAKE_DIRECTORY
-  "/home/urban/esp/v5.3.1/esp-idf/components/bootloader/subproject"
-  "/home/urban/esp-wifi-deauthenticator/build/bootloader"
-  "/home/urban/esp-wifi-deauthenticator/build/bootloader-prefix"
-  "/home/urban/esp-wifi-deauthenticator/build/bootloader-prefix/tmp"
-  "/home/urban/esp-wifi-deauthenticator/build/bootloader-prefix/src/bootloader-stamp"
-  "/home/urban/esp-wifi-deauthenticator/build/bootloader-prefix/src"
-  "/home/urban/esp-wifi-deauthenticator/build/bootloader-prefix/src/bootloader-stamp"
+  "C:/Users/Urban/esp/v5.3.1/esp-idf/components/bootloader/subproject"
+  "C:/Users/Urban/esp-wifi-deauthenticator/build/bootloader"
+  "C:/Users/Urban/esp-wifi-deauthenticator/build/bootloader-prefix"
+  "C:/Users/Urban/esp-wifi-deauthenticator/build/bootloader-prefix/tmp"
+  "C:/Users/Urban/esp-wifi-deauthenticator/build/bootloader-prefix/src/bootloader-stamp"
+  "C:/Users/Urban/esp-wifi-deauthenticator/build/bootloader-prefix/src"
+  "C:/Users/Urban/esp-wifi-deauthenticator/build/bootloader-prefix/src/bootloader-stamp"
 )
 
 set(configSubDirs )
 foreach(subDir IN LISTS configSubDirs)
-    file(MAKE_DIRECTORY "/home/urban/esp-wifi-deauthenticator/build/bootloader-prefix/src/bootloader-stamp/${subDir}")
+    file(MAKE_DIRECTORY "C:/Users/Urban/esp-wifi-deauthenticator/build/bootloader-prefix/src/bootloader-stamp/${subDir}")
 endforeach()
 if(cfgdir)
-  file(MAKE_DIRECTORY "/home/urban/esp-wifi-deauthenticator/build/bootloader-prefix/src/bootloader-stamp${cfgdir}") # cfgdir has leading slash
+  file(MAKE_DIRECTORY "C:/Users/Urban/esp-wifi-deauthenticator/build/bootloader-prefix/src/bootloader-stamp${cfgdir}") # cfgdir has leading slash
 endif()
