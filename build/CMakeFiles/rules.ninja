@@ -1760,7 +1760,7 @@ rule C_STATIC_LIBRARY_LINKER____idf_main_
 # Rule for re-running cmake.
 
 rule RERUN_CMAKE
-  command = C:\Users\Urban\.espressif\tools\cmake\3.24.0\bin\cmake.exe --regenerate-during-build -SC:\Users\Urban\esp-wifi-deauthenticator -BC:\Users\Urban\esp-wifi-deauthenticator\build
+  command = C:\Users\Urban\.espressif\tools\cmake\3.24.0\bin\cmake.exe --regenerate-during-build -SC:\Users\Urban\Documents\Projects\esp-wifi-deauthenticator -BC:\Users\Urban\Documents\Projects\esp-wifi-deauthenticator\build
   description = Re-running CMake...
   generator = 1
 

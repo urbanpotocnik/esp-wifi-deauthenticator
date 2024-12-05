@@ -1,4 +1,4 @@
-# Install script for directory: C:/Users/Urban/esp-wifi-deauthenticator/main
+# Install script for directory: C:/Users/Urban/Documents/Projects/esp-wifi-deauthenticator/main
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
