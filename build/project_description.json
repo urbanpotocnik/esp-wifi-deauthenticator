@@ -1,7 +1,7 @@
 {
     "version":            "1.1",
     "project_name":       "esp-wifi-deauthenticator",
-    "project_version":    "548d99a-dirty",
+    "project_version":    "7eea52f-dirty",
     "project_path":       "C:/Users/Urban/Documents/Projects/esp-wifi-deauthenticator",
     "idf_path":           "C:/Users/Urban/esp/v5.3.1/esp-idf",
     "build_dir":          "C:/Users/Urban/Documents/Projects/esp-wifi-deauthenticator/build",

