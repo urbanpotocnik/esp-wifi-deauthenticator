@@ -74,7 +74,7 @@ wifi_ap_record_t* scan_wifi_networks(uint16_t* ap_count) {
 
 void print_networks(wifi_ap_record_t* ap_records, uint16_t ap_count) {
     printf("\nFound %d access points:\n", ap_count);
-    
+
     for (int i = 0; i < ap_count; i++) {
         printf("%d. SSID: %s, RSSI: %d\n", i + 1, ap_records[i].ssid, ap_records[i].rssi);
     }
@@ -103,7 +103,7 @@ int get_user_selection(uint16_t max_networks) {
     return selection;
 }
 
-esp_err_t send_deauth_frame(const wifi_ap_record_t *ap_record) { // Renamed function
+esp_err_t send_deauth_frame(const wifi_ap_record_t *ap_record) { 
     uint8_t deauth_frame[sizeof(deauth_frame_template)];
     memcpy(deauth_frame, deauth_frame_template, sizeof(deauth_frame_template));
     memcpy(&deauth_frame[10], ap_record->bssid, 6);
@@ -138,7 +138,7 @@ void wifi_deauth_control(void) {
     int selection = get_user_selection(ap_count);
     if (selection >= 0) {
         ESP_LOGI(TAG, "Selected network: %s", ap_records[selection].ssid);
-        ESP_ERROR_CHECK(send_deauth_frame(&ap_records[selection])); // Renamed function
+        ESP_ERROR_CHECK(send_deauth_frame(&ap_records[selection])); 
     } else {
         ESP_LOGE(TAG, "Invalid selection");
     }
